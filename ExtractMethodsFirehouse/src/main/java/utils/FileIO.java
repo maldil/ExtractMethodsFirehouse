@@ -4,6 +4,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashSet;
@@ -107,15 +108,14 @@ public class FileIO {
         }
     }
 
-    public static void appendHashSetToFile(String filePath, String content) {
+    public static void appendHashSetToFile(File filePath, String content) {
         try {
-            File file = new File(filePath);
-            if (!file.exists()) {
-                file.createNewFile();
+            if (!filePath.exists()) {
+                filePath.createNewFile();
                 System.out.println("File created: " + filePath);
             }
 
-            BufferedWriter writer = new BufferedWriter(new FileWriter(file, true));
+            BufferedWriter writer = new BufferedWriter(new FileWriter(filePath, true));
 
             writer.write(content);
             writer.newLine();

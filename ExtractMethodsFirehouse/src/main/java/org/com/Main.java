@@ -8,6 +8,7 @@ import gr.uom.java.xmi.diff.RenameClassRefactoring;
 import gr.uom.java.xmi.diff.RenameOperationRefactoring;
 import io.vavr.control.Try;
 import org.eclipse.jdt.core.dom.*;
+import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.DiffFormatter;
 import org.eclipse.jgit.diff.RawTextComparator;
@@ -29,6 +30,7 @@ import utils.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -39,26 +41,31 @@ import static org.eclipse.jgit.revwalk.RevSort.REVERSE;
 
 public class Main {
     public static void main(String[] args) {
-        Scanner sc = new Scanner(Objects.requireNonNull(FileIO.readStringFromFile("selected-repos.csv")));
         int i = 0;
-        File file = new File(Configurations.LONG_METHODS );
-
-        if (file.exists()) {
-            if (file.delete()) {
-                System.out.println("Existing file deleted."+ "in " +Configurations.LONG_METHODS);
-            } else {
-                System.out.println("Failed to delete existing file.");
-            }
+        boolean outputFolderCreated = true;
+        File file = new File(Configurations.LONG_METHODS);
+        if (!file.exists()) {
+            outputFolderCreated = file.mkdirs();
         }
+
+        if (!outputFolderCreated) return;
+
+        Scanner sc = new Scanner(Objects.requireNonNull(FileIO.readStringFromFile("selected-repos.csv")));
         while (sc.hasNextLine()) {
             String proName = sc.nextLine();
-            String path = MyGit.cloneDeleteIfExits(proName, Configurations.PROJECT_REPOSITORY);
+            String path = null;
+            try {
+                path = MyGit.cloneOrUpdate(Configurations.PROJECT_REPOSITORY, proName);
+            } catch (IOException | GitAPIException e) {
+                e.printStackTrace();
+                break;
+            }
+
             GitConnector git = new GitConnector(path + "/.git");
             git.connect();
             List<RevCommit> commitsInLastNHours = MyGit.getCommitsInLastNHours(git.getGit(), REVERSE, Configurations.DURATION);
             analyze(new File(path + "/"), proName, commitsInLastNHours);
             i++;
-            System.out.println("Starting to process " + proName + " " + i + " project");
         }
         sc.close();
 
@@ -110,7 +117,7 @@ public class Main {
 
 
     private static void analyze(File path, String proName, List<RevCommit> commitsInLastNHours) {
-        GitService gitService = new GitServiceImpl();
+        System.out.println(String.format("Analyzing %s/%s", path, proName));
         GitHistoryRefactoringMiner miner = new GitHistoryRefactoringMinerImpl();
         Repository repo = Try.of(() -> openRepository(path.getPath())).get();
         ArrayList<Refactoring> refs = new ArrayList<>();
@@ -127,23 +134,21 @@ public class Main {
         }
 
 
-        System.out.println();
-
-
+        System.out.println("Done");
     }
 
     private static void writeToFile(ArrayList<MyPair<String, MethodDeclaration>> rowNewFunctions, String projectName) {
-        String file = "";
+        File outputFile = new File(String.format("%s/%s.csv", Configurations.LONG_METHODS, projectName.replace("/", "_")));
+        if (outputFile.exists()) {
+            outputFile.delete();
+        }
+
         for (MyPair<String, MethodDeclaration> function : rowNewFunctions) {
             String githubLocation = "https://github.com/" + projectName + "/commit/" + function.first.split(",")[0] + "#diff-" +
                     FileIO.getMD5Encoding(function.first.split(",")[1]) + "R" + ((CompilationUnit) function.second.getRoot()).getLineNumber(function.second.getStartPosition());
 
-            FileIO.appendHashSetToFile(Configurations.LONG_METHODS, function.first.split(",")[1] + "::" + function.second.getName().getIdentifier() + "," + githubLocation);
-
-
+            FileIO.appendHashSetToFile(outputFile, function.first.split(",")[1] + "::" + function.second.getName().getIdentifier() + "," + githubLocation);
         }
-
-
     }
 
     private static ArrayList<MyPair<String, MethodDeclaration>> refineNewMethods(ArrayList<MyPair<String, MethodDeclaration>> rowNewFunctions, ArrayList<Refactoring> refs) {
