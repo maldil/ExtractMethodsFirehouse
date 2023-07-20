@@ -1,5 +1,6 @@
 package utils;
 
+import config.Configurations;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.revwalk.RevCommit;
@@ -23,6 +24,8 @@ import java.util.stream.Collectors;
 
 public class MyGit {
     public static List<RevCommit> getCommitsInLastNHours(Git git, RevSort order, int hours) {
+
+
         Instant currentTime = Instant.now();
         Instant timeRangeAgo = currentTime.minus(hours, ChronoUnit.HOURS);
         List<RevCommit> commits = new ArrayList<>(Try.of(() -> {
@@ -44,8 +47,12 @@ public class MyGit {
                 .onSuccess(l -> System.out.println(l.size() + " number of commits found for " + git.getRepository().getDirectory().getParentFile().getName()))
                 .onFailure(Throwable::printStackTrace)
                 .getOrElse(new ArrayList<>())).stream().filter(c->{
-                    Instant commitTime = Instant.ofEpochSecond(c.getCommitTime());
-                    return commitTime.isAfter(timeRangeAgo);
+                    Instant time;
+                    if (Configurations.TIME_CONFIG == Configurations.TIME.AUTHOR)
+                        time = Instant.ofEpochSecond(c.getAuthorIdent().getWhen().toInstant().getEpochSecond());
+                    else
+                        time = Instant.ofEpochSecond(c.getCommitTime());
+                    return time.isAfter(timeRangeAgo);
 
         }).collect(Collectors.toList());
         Collections.reverse(commits);

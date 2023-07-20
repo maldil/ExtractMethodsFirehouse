@@ -49,8 +49,8 @@ public class Main {
         }
         while (sc.hasNextLine()) {
             String proName = sc.nextLine();
-//            String path = MyGit.cloneDeleteIfExits(proName, Configurations.PROJECT_REPOSITORY);
-            String path = Configurations.PROJECT_REPOSITORY+"/"+proName+"/";
+            String path = MyGit.cloneDeleteIfExits(proName, Configurations.PROJECT_REPOSITORY);
+//            String path = Configurations.PROJECT_REPOSITORY+"/"+proName+"/";
             GitConnector git = new GitConnector(path + "/.git");
             git.connect();
             List<RevCommit> commitsInLastNHours = MyGit.getCommitsInLastNHours(git.getGit(), REVERSE, Configurations.DURATION);
@@ -138,12 +138,11 @@ public class Main {
     private static void writeToFile(ArrayList<MyPair<String, MethodDeclaration>> rowNewFunctions, String projectName) {
         String file = "";
         for (MyPair<String, MethodDeclaration> function : rowNewFunctions) {
+            int lineNumber = ((CompilationUnit) function.second.getRoot()).getLineNumber(function.second.getStartPosition());
             String githubLocation = "https://github.com/" + projectName + "/commit/" + function.first.split(",")[0] + "#diff-" +
-                    FileIO.getMD5Encoding(function.first.split(",")[1]) + "R" + ((CompilationUnit) function.second.getRoot()).getLineNumber(function.second.getStartPosition());
+                    FileIO.getMD5Encoding(function.first.split(",")[1]) + "R" + lineNumber;
 
-            FileIO.appendHashSetToFile(Configurations.LONG_METHODS, function.first.split(",")[1] + "::" + function.second.getName().getIdentifier() + "," + githubLocation);
-
-
+            FileIO.appendHashSetToFile(Configurations.LONG_METHODS, function.first.split(",")[1] + "::" + function.second.getName().getIdentifier() + "," + githubLocation+","+lineNumber);
         }
 
 
