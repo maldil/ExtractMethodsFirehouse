@@ -181,9 +181,6 @@ public class Main {
     private static ArrayList<MyPair<String, MethodDeclaration>> getNewMethodDeclarations(List<RevCommit> commitsInLastNHours, Repository repo) {
         ArrayList<MyPair<String, MethodDeclaration>> rowNewFunctions = new ArrayList<>();
         for (RevCommit commits : commitsInLastNHours) {
-            if (commits.getName().equals("210d7d5a44d413f8c357176f636c74b8cc5d5421")){
-                System.out.println();
-            }
             if (commits.getParentCount() == 1) {
                 RevWalk rw = new RevWalk(repo);
                 RevCommit parent = null;
@@ -263,8 +260,6 @@ public class Main {
     private static void getRefactorings(List<RevCommit> commitsInLastNHours, GitHistoryRefactoringMiner miner, Repository repo, ArrayList<Refactoring> refs) {
         try {
             for (RevCommit commit : commitsInLastNHours) {
-                if (commit.getName().equals("210d7d5a44d413f8c357176f636c74b8cc5d5421"))
-                    System.out.println();
                 miner.detectAtCommit(repo, commit.getName(), new RefactoringHandler() {
                     @Override
                     public void handle(String commitId, List<Refactoring> refactorings) {
