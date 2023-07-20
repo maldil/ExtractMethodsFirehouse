@@ -2,10 +2,7 @@ package org.com;
 
 import config.Configurations;
 import gr.uom.java.xmi.UMLOperation;
-import gr.uom.java.xmi.diff.MoveClassRefactoring;
-import gr.uom.java.xmi.diff.MoveOperationRefactoring;
-import gr.uom.java.xmi.diff.RenameClassRefactoring;
-import gr.uom.java.xmi.diff.RenameOperationRefactoring;
+import gr.uom.java.xmi.diff.*;
 import io.vavr.control.Try;
 import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jgit.diff.DiffEntry;
@@ -52,7 +49,8 @@ public class Main {
         }
         while (sc.hasNextLine()) {
             String proName = sc.nextLine();
-            String path = MyGit.cloneDeleteIfExits(proName, Configurations.PROJECT_REPOSITORY);
+//            String path = MyGit.cloneDeleteIfExits(proName, Configurations.PROJECT_REPOSITORY);
+            String path = Configurations.PROJECT_REPOSITORY+"/"+proName+"/";
             GitConnector git = new GitConnector(path + "/.git");
             git.connect();
             List<RevCommit> commitsInLastNHours = MyGit.getCommitsInLastNHours(git.getGit(), REVERSE, Configurations.DURATION);
@@ -75,7 +73,7 @@ public class Main {
 
         ArrayList<MyPair<String, MethodDeclaration>> newMethods = new ArrayList<>();
         for (MethodDeclaration newvMethod : newv.getMethods()) {
-            if (isNewMethods(newvMethod, oldv.getMethods())) {
+            if (isNewMethod(newvMethod, oldv.getMethods())) {
                 if (((CompilationUnit) newvMethod.getRoot()).getLineNumber(newvMethod.getStartPosition() +
                         newvMethod.getLength()) - ((CompilationUnit) newvMethod.getRoot()).getLineNumber(newvMethod.getStartPosition()) > Configurations.METHOD_LENGTH) {
                     newMethods.add(new MyPair(oldPath, newvMethod));
@@ -85,13 +83,18 @@ public class Main {
         return newMethods;
     }
 
-    private static boolean isNewMethods(MethodDeclaration newvMethod, ArrayList<MethodDeclaration> methods) {
+    private static boolean isNewMethod(MethodDeclaration newvMethod, ArrayList<MethodDeclaration> methods) {
         if (newvMethod.getParent() instanceof AnonymousClassDeclaration) return false;
         for (MethodDeclaration oldMethod : methods) {
             if (oldMethod.getName().getIdentifier().equals(newvMethod.getName().getIdentifier()) && oldMethod.parameters().size() ==
                     newvMethod.parameters().size() && ((oldMethod.getParent() instanceof TypeDeclaration && newvMethod.getParent() instanceof TypeDeclaration
                     && ((TypeDeclaration) oldMethod.getParent()).getName().getIdentifier().equals(((TypeDeclaration) newvMethod.getParent()).getName().getIdentifier()))
                     || (oldMethod.getParent() instanceof AnonymousClassDeclaration && newvMethod.getParent() instanceof AnonymousClassDeclaration))) {
+                return false;
+            }
+            else if (oldMethod.getName().getIdentifier().equals(newvMethod.getName().getIdentifier()) && oldMethod.parameters().size() ==
+                    newvMethod.parameters().size() && oldMethod.getParent() instanceof EnumDeclaration && newvMethod.getParent() instanceof EnumDeclaration
+                    && ((EnumDeclaration)newvMethod.getParent()).getName().getIdentifier().equals(((EnumDeclaration)oldMethod.getParent()).getName().getIdentifier())){
                 return false;
             }
         }
@@ -158,6 +161,15 @@ public class Main {
             } else if (ref instanceof MoveClassRefactoring) {
                 toberemoved.addAll(((MoveClassRefactoring) ref).getMovedClass().getOperations().stream().map(UMLOperation::getName).toList());
             }
+            else if (ref instanceof AddParameterRefactoring){
+                toberemoved.add(((AddParameterRefactoring)ref).getOperationAfter().getName());
+            }
+            else if (ref instanceof RemoveParameterRefactoring){
+                toberemoved.add(((RemoveParameterRefactoring)ref).getOperationAfter().getName());
+            }
+            else if (ref instanceof RenameVariableRefactoring){
+                toberemoved.add(((RenameVariableRefactoring)ref).getOperationAfter().getName());
+            }
 
         }
         List<MyPair<String, MethodDeclaration>> myPairStream = rowNewFunctions.stream().filter(x -> toberemoved.contains(x.second.getName().getIdentifier())).toList();
@@ -169,6 +181,9 @@ public class Main {
     private static ArrayList<MyPair<String, MethodDeclaration>> getNewMethodDeclarations(List<RevCommit> commitsInLastNHours, Repository repo) {
         ArrayList<MyPair<String, MethodDeclaration>> rowNewFunctions = new ArrayList<>();
         for (RevCommit commits : commitsInLastNHours) {
+            if (commits.getName().equals("210d7d5a44d413f8c357176f636c74b8cc5d5421")){
+                System.out.println();
+            }
             if (commits.getParentCount() == 1) {
                 RevWalk rw = new RevWalk(repo);
                 RevCommit parent = null;
@@ -248,6 +263,8 @@ public class Main {
     private static void getRefactorings(List<RevCommit> commitsInLastNHours, GitHistoryRefactoringMiner miner, Repository repo, ArrayList<Refactoring> refs) {
         try {
             for (RevCommit commit : commitsInLastNHours) {
+                if (commit.getName().equals("210d7d5a44d413f8c357176f636c74b8cc5d5421"))
+                    System.out.println();
                 miner.detectAtCommit(repo, commit.getName(), new RefactoringHandler() {
                     @Override
                     public void handle(String commitId, List<Refactoring> refactorings) {
